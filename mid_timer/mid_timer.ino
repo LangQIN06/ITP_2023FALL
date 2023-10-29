@@ -6,20 +6,23 @@
 
 //RTC
 RTC_DS3231 rtc;
-char daysOfTheWeek[7][12] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
+char daysOfTheWeek[7][12] = { "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday" };
 
 //OLED
-#define SCREEN_WIDTH 128 // OLED display width, in pixels
-#define SCREEN_HEIGHT 32 // OLED display height, in pixels
-#define OLED_RESET     -1 // Reset pin # (or -1 if sharing Arduino reset pin)
-#define SCREEN_ADDRESS 0x3C ///< See datasheet for Address; 0x3D for 128x64, 0x3C for 128x32
+#define SCREEN_WIDTH 128     // OLED display width, in pixels
+#define SCREEN_HEIGHT 32     // OLED display height, in pixels
+#define OLED_RESET -1        // Reset pin # (or -1 if sharing Arduino reset pin)
+#define SCREEN_ADDRESS 0x3C  ///< See datasheet for Address; 0x3D for 128x64, 0x3C for 128x32
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 // Constants
-const int buttonPin = 2;                    // The digital pin where the button is connected
+const int buttonPin = 2;  // The digital pin where the button is connected
 const int button1Pin = 3;
-const int button2Pin = 4; 
-const int servoPin = 9;                     // The digital pin where the servo is connected
+const int button2Pin = 4;
+const int ledPin = 5;
+const int led1Pin = 6;
+const int led2Pin = 7;
+const int servoPin = 9;           // The digital pin where the servo is connected
 unsigned long timerDuration = 0;  // 5 minutes in milliseconds
 
 // Variables
@@ -34,22 +37,27 @@ void setup() {
   pinMode(button1Pin, INPUT_PULLUP);
   pinMode(button2Pin, INPUT_PULLUP);
   pinMode(servoPin, OUTPUT);
-  myservo.write(90); // Initialize servo position
+  pinMode(ledPin, OUTPUT);
+  pinMode(led1Pin, OUTPUT);
+  pinMode(led2Pin, OUTPUT);
+  myservo.write(90);  // Initialize servo position
   Serial.begin(57600);
 
 #ifndef ESP8266
-  while (!Serial); // wait for serial port to connect. Needed for native USB
+  while (!Serial)
+    ;  // wait for serial port to connect. Needed for native USB
 #endif
 
-  if (! rtc.begin()) {
+  if (!rtc.begin()) {
     Serial.println("Couldn't find RTC");
     Serial.flush();
     while (1) delay(10);
   }
 
-  if(!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
+  if (!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
     Serial.println(F("SSD1306 allocation failed"));
-    for(;;); // Don't proceed, loop forever
+    for (;;)
+      ;  // Don't proceed, loop forever
   }
 
   if (rtc.lostPower()) {
@@ -70,69 +78,81 @@ void setup() {
   // rtc.adjust(DateTime(2014, 1, 21, 3, 0, 0));
 
   display.clearDisplay();
-  display.setTextSize(2);             // Normal 1:1 pixel scale
-  display.setTextColor(SSD1306_WHITE);        // Draw white text
-  display.setCursor(0,0);             // Start at top-left corner
+  display.setTextSize(2);               // Normal 1:1 pixel scale
+  display.setTextColor(SSD1306_WHITE);  // Draw white text
+  display.setCursor(0, 0);              // Start at top-left corner
   display.println(F("RTC Time demo!"));
   display.display();
   delay(2000);
 }
 
 void loop() {
-   DateTime now = rtc.now();
+  DateTime now = rtc.now();
 
-    // Serial.print(now.year(), DEC);
-    // Serial.print('/');
-    // Serial.print(now.month(), DEC);
-    // Serial.print('/');
-    // Serial.print(now.day(), DEC);
-    // Serial.print(" (");
-    // Serial.print(daysOfTheWeek[now.dayOfTheWeek()]);
-    // Serial.print(") ");
-    // Serial.print(now.hour(), DEC);
-    // Serial.print(':');
-    // Serial.print(now.minute(), DEC);
-    // Serial.print(':');
-    // Serial.print(now.second(), DEC);
-    // Serial.println();
+  // Serial.print(now.year(), DEC);
+  // Serial.print('/');
+  // Serial.print(now.month(), DEC);
+  // Serial.print('/');
+  // Serial.print(now.day(), DEC);
+  // Serial.print(" (");
+  // Serial.print(daysOfTheWeek[now.dayOfTheWeek()]);
+  // Serial.print(") ");
+  // Serial.print(now.hour(), DEC);
+  // Serial.print(':');
+  // Serial.print(now.minute(), DEC);
+  // Serial.print(':');
+  // Serial.print(now.second(), DEC);
+  // Serial.println();
 
-    display.clearDisplay();
-    display.setCursor(0,0);
-    display.print(now.hour(), DEC);
-    display.print(':');
-    display.print(now.minute(), DEC);
-    display.print(':');
-    display.println(now.second(), DEC);
-    display.print(now.year(), DEC);
-    display.print('/');
-    display.print(now.month(), DEC);
-    display.print('/');
-    display.print(now.day(), DEC);
-    display.print(" (");
-    // display.print(daysOfTheWeek[now.dayOfTheWeek()]);
-    // display.print(") ");
-    display.display();
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.print(now.hour(), DEC);
+  display.print(':');
+  display.print(now.minute(), DEC);
+  display.print(':');
+  display.println(now.second(), DEC);
+  display.print(now.year(), DEC);
+  display.print('/');
+  display.print(now.month(), DEC);
+  display.print('/');
+  display.print(now.day(), DEC);
+  display.print(" (");
+  // display.print(daysOfTheWeek[now.dayOfTheWeek()]);
+  // display.print(") ");
+  display.display();
 
 
   if (digitalRead(buttonPin) == HIGH && !timerStarted) {
     timerDuration = 5000;
     timerStarted = true;
     startTime = millis();
+    digitalWrite(ledPin, HIGH);
     Serial.println("0 Timer started.");
+  } 
+  else if (timerStarted == false) {
+    digitalWrite(ledPin, LOW);
   }
 
   if (digitalRead(button1Pin) == HIGH && !timerStarted) {
     timerDuration = 10000;
     timerStarted = true;
     startTime = millis();
+    digitalWrite(led1Pin, HIGH);
     Serial.println("1 Timer started.");
+  } 
+  else if (timerStarted == false) {
+    digitalWrite(led1Pin, LOW);
   }
 
   if (digitalRead(button2Pin) == HIGH && !timerStarted) {
     timerDuration = 15000;
     timerStarted = true;
     startTime = millis();
+    digitalWrite(led2Pin, HIGH);
     Serial.println("2 Timer started.");
+  } 
+  else if (timerStarted == false) {
+    digitalWrite(led2Pin, LOW);
   }
 
   if (timerStarted) {
@@ -142,16 +162,16 @@ void loop() {
       timerStarted = false;
       // myservo.write(90); // Move the servo to 90 degrees
 
-   for (int i = 0; i < 5; i++) { // Repeat the sequence 5 times
-    for (int pos = 90; pos <= 120; pos += 2) {
-      myservo.write(pos);
-      delay(15);
-    }
-    for (int pos = 120; pos >= 90; pos -= 2) {
-      myservo.write(pos);
-      delay(15);
-    }
-  }
+      for (int i = 0; i < 5; i++) {  // Repeat the sequence 5 times
+        for (int pos = 90; pos <= 120; pos += 2) {
+          myservo.write(pos);
+          delay(15);
+        }
+        for (int pos = 120; pos >= 90; pos -= 2) {
+          myservo.write(pos);
+          delay(15);
+        }
+      }
       Serial.println("Timer finished. Servo moved.");
     }
   }
