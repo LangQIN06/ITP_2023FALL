@@ -40,6 +40,8 @@ void ofApp::draw() {
     
     int currY = 20;
     int handCount = 0;
+    glm::vec3 leftPalmPosition, rightPalmPosition;
+    bool leftHandDetected = false, rightHandDetected = false;
     
     this->cam.begin();
     {
@@ -50,6 +52,15 @@ void ofApp::draw() {
                 if (handCount < 2) {
                     auto hand = hp.second;
                     auto handId = hand->getId();
+                    auto handType = hand->getType();
+                    
+                    if (handType == eLeapHandType_Left) {
+                        leftPalmPosition = hand->getPalm().position;
+                        leftHandDetected = true;
+                    } else if (handType == eLeapHandType_Right) {
+                        rightPalmPosition = hand->getPalm().position;
+                        rightHandDetected = true;
+                    }
                     
                     for (int d = 0; d < 5; ++d) {
                         auto &digit = hand->getDigits()[d];
@@ -64,6 +75,19 @@ void ofApp::draw() {
                     glm::vec3 currentPalmPosition = palm.position;
                     glm::vec3 normal = palm.normal;
                     glm::vec3 direction = palm.direction;
+                    
+                    //clap
+                    if (leftHandDetected && rightHandDetected) {
+                        float distance = glm::distance(leftPalmPosition, rightPalmPosition);
+                        
+                        std::ostringstream ossDistance;
+                        ossDistance << "Distance between left and right palm: " << distance;
+                        ofDrawBitmapString(ossDistance.str(), 10, currY);
+                        currY += 20;
+                        
+                        std::vector<float> clapDistance = {distance};
+                        sendOscMessage("/clap", clapDistance);
+                    }
                     
                     //map the palm value
                     float mappedPalmX = ofMap(currentPalmPosition.x, -200, 200, -10, 10);
@@ -105,10 +129,6 @@ void ofApp::draw() {
                     auto &distalThumbPhalange = thumb.distal;
                     glm::vec3 distalThumbPos = distalThumbPhalange.jointNext;
                     
-                    //distance between A&B
-//                    float TPalmdistance = glm::distance(distalThumbPos, currentPalmPosition);
-//                    float TIXdistance= abs(float (distalThumbPos.x))- abs(float (distalIndexPos.x));
-
                     // grab&pinch Info
                     float grabDistance = hand->getGrabAngle();
                     float pinchDistance = hand->getPinchDistance();
@@ -134,7 +154,7 @@ void ofApp::draw() {
                         gunStartTimes.erase(handId);
                     }
                     
-                
+                    
                     // Info
                     std::ostringstream oss;
                     oss << "Hand " << (hand->getType() == eLeapHandType_Left ? "LEFT" : "RIGHT") << std::endl
@@ -153,30 +173,12 @@ void ofApp::draw() {
                     << ofToString(normal.y, 2) << "\n"
                     << "Palm Direction (X, Y) = " << ofToString(direction.x, 2) << ", "
                     << ofToString(direction.y, 2)<< std::endl
-                    << "Pinky Distal Position - X: " << distalPinkyPos.x << ", Y: " << distalPinkyPos.y << ", Z: " << distalPinkyPos.z << std::endl
                     << "Index Distal Position - X: " << distalIndexPos.x << ", Y: " << distalIndexPos.y << ", Z: " << distalIndexPos.z << std::endl
                     << "Thumb Distal Position - X: " << distalThumbPos.x << ", Y: " << distalThumbPos.y << ", Z: " << distalThumbPos.z << std::endl;
-//                    << "Distance between Thumb and Palm: " << TPalmdistance << std::endl;
-//                    << "Distance_x between Thumb and Index: " << TIXdistance << std::endl;
                     
-                    
-                    // build and send Palm data via osc
-                    // ofxOscMessage palmMsg;
-                    //                palmMsg.setAddress("/hand/palmCenter");
-//                    palmMsg.setAddress("/position");
-//                    palmMsg.addFloatArg(currentPalmPosition.x);
-//                    palmMsg.addFloatArg(currentPalmPosition.y);
-//                    palmMsg.addFloatArg(currentAcceleration.x);
-//                    palmMsg.addFloatArg(currentAcceleration.y);
-                    //string currentAccelerationStr = ofToString(currentAcceleration.x) + "," + ofToString(currentAcceleration.y);
-                    //string currentPalmPositionStr = ofToString(mappedPalmX) + "," + ofToString(mappedPalmY);
-                    //                palmMsg.addStringArg(currentPalmPositionStr);
-                    //sender.sendMessage(palmMsg, false);
                     
                     std::vector<float> palmPositionsCurrentVelocity = {mappedPalmX, mappedPalmY,currentVelocity.x, currentVelocity.y};
                     sendOscMessage("/position", palmPositionsCurrentVelocity);
-//                    std::vector<float> currentAccelerationS = {currentAcceleration.x, currentAcceleration.y};
-//                    sendOscMessage("/acceleration", currentAccelerationS);
                     
                     
                     const int click=1.00;
@@ -185,14 +187,6 @@ void ofApp::draw() {
                     if (grabStartTimes.find(handId) != grabStartTimes.end() && currentTime - grabStartTimes[handId] >= 0.3) {
                         oss << std::endl
                         << "Click!" << std::endl;
-                        
-//                        //send data to server
-//                        ofxOscMessage msg;
-//                        //msg.setAddress("/indexFinger/distalPos");
-//                        msg.setAddress("/position");
-                        //string distalPosStr = ofToString(distalIndexPos.x) + "," + ofToString(distalIndexPos.y);
-//                        msg.addStringArg(distalPosStr + "CLICK!");
-//                        sender.sendMessage(msg, false);
                         
                         std::vector<float> distalIndexPosInfo = {distalIndexPos.x, distalIndexPos.y};
                         sendOscMessage("/click", distalIndexPosInfo);
@@ -206,7 +200,7 @@ void ofApp::draw() {
                         << "Gun shot!" << std::endl;
                         std::vector<float> shootInfo = {shoot, 0};
                         sendOscMessage("/shoot", shootInfo);
-
+                        
                     }
                     
                     ofDrawBitmapString(oss.str(), 10, currY);
@@ -231,7 +225,7 @@ void ofApp::renderBone(const ofxUltraleapGemini::Bone& bone, const ofFloatColor&
     xform *= glm::translate(bone.jointPrev);
     xform *= glm::toMat4(bone.rotation);
     xform *= glm::eulerAngleX(ofDegToRad(90));
-
+    
     ofPushMatrix();
     ofMultMatrix(xform);
     {
@@ -239,7 +233,7 @@ void ofApp::renderBone(const ofxUltraleapGemini::Bone& bone, const ofFloatColor&
         ofDrawCylinder(bone.width * 0.5f, glm::distance(bone.jointNext, bone.jointPrev));
     }
     ofPopMatrix();
-
+    
     ofSetColor(color);
     ofDrawLine(bone.jointPrev, bone.jointNext);
 }
@@ -253,4 +247,3 @@ void ofApp::sendOscMessage(const std::string& address, const std::vector<float>&
     }
     sender.sendMessage(oscMsg, false);
 }
-
